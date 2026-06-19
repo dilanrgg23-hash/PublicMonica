@@ -1,0 +1,26 @@
+{
+  "name": "balanceador-unite",
+  "version": "1.0.0",
+  "description": "Backend que obtiene datos de jugadores de Pokemon Unite desde UniteAPI y los expone para el balanceador de equipos.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "pokemon-unite",
+    "balanceador",
+    "uniteapi",
+    "matchmaking"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  }
+}

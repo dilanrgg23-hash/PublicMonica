@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Balanceador Unite · Arena</title>
+<style>
+  :root {
+    --purple: #8a4bff;
+    --purple-soft: #b18cff;
+    --orange: #ff7a18;
+    --orange-soft: #ffae6b;
+    --cyan: #21e6c1;
+    --bg-0: #0a0a18;
+    --bg-1: #12122a;
+    --bg-2: #1b1b3a;
+    --ink: #eef0ff;
+    --ink-dim: #9aa0c7;
+    --line: rgba(255, 255, 255, 0.08);
+    --good: #21e6c1;
+    --warn: #ffd166;
+    --bad: #ff5d73;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(1200px 600px at 0% -10%, rgba(138, 75, 255, 0.25), transparent 60%),
+      radial-gradient(1200px 600px at 100% -10%, rgba(255, 122, 24, 0.22), transparent 60%),
+      linear-gradient(180deg, var(--bg-0), var(--bg-1) 60%, var(--bg-0));
+    background-attachment: fixed;
+  }
+
+  header {
+    text-align: center;
+    padding: 28px 16px 8px;
+    position: relative;
+  }
+  header h1 {
+    margin: 0;
+    font-size: clamp(26px, 5vw, 44px);
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, var(--purple-soft), var(--cyan), var(--orange-soft));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 40px rgba(33, 230, 193, 0.15);
+  }
+  header p { margin: 6px 0 0; color: var(--ink-dim); font-size: 14px; }
+  .demo-flag {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 209, 102, 0.12);
+    color: var(--warn);
+  }
+  .demo-flag.live { background: rgba(33, 230, 193, 0.12); color: var(--good); }
+
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+
+  .panel {
+    background: linear-gradient(180deg, rgba(27, 27, 58, 0.85), rgba(18, 18, 42, 0.85));
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 18px;
+    margin-bottom: 18px;
+    backdrop-filter: blur(6px);
+  }
+  .panel h2 {
+    margin: 0 0 14px;
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--ink-dim);
+  }
+
+  /* --- Entrada de jugadores --- */
+  .players-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 10px;
+  }
+  .player-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(10, 10, 24, 0.6);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px 10px;
+  }
+  .player-input .num {
+    font-size: 12px;
+    color: var(--ink-dim);
+    width: 18px;
+    text-align: center;
+  }
+  .player-input input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    color: var(--ink);
+    font-size: 14px;
+    outline: none;
+  }
+  .player-input select {
+    background: rgba(10, 10, 24, 0.8);
+    color: var(--ink-dim);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 11px;
+    padding: 2px 4px;
+  }
+
+  .btn-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  button {
+    cursor: pointer;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 11px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.05);
+    transition: transform 0.08s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+  button:hover { transform: translateY(-1px); background: rgba(255, 255, 255, 0.1); }
+  button:active { transform: translateY(0); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .btn-primary {
+    background: linear-gradient(90deg, var(--purple), var(--orange));
+    border-color: transparent;
+    box-shadow: 0 8px 24px rgba(138, 75, 255, 0.25);
+  }
+  .btn-ghost { background: transparent; }
+
+  /* --- Barra de balance (jaloneo) --- */
+  .balance {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .balance .label { font-size: 13px; width: 70px; }
+  .balance .label.purple { color: var(--purple-soft); text-align: right; }
+  .balance .label.orange { color: var(--orange-soft); }
+  .bar {
+    position: relative;
+    flex: 1;
+    height: 22px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: #07071a;
+    border: 1px solid var(--line);
+  }
+  .bar .fill-purple {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: linear-gradient(90deg, var(--purple), var(--purple-soft));
+    transition: width 0.5s cubic-bezier(.2,.8,.2,1);
+  }
+  .bar .fill-orange {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    background: linear-gradient(270deg, var(--orange), var(--orange-soft));
+    transition: width 0.5s cubic-bezier(.2,.8,.2,1);
+  }
+  .bar .marker {
+    position: absolute; top: -2px; bottom: -2px; left: 50%;
+    width: 2px; background: rgba(255,255,255,0.35);
+    transform: translateX(-50%);
+  }
+  .bar.balanced { box-shadow: 0 0 18px var(--cyan), inset 0 0 12px rgba(33,230,193,0.4); }
+  .balance-meta { text-align: center; font-size: 13px; color: var(--ink-dim); margin-top: 4px; }
+  .balance-meta b { color: var(--ink); }
+  .balance-meta.balanced b { color: var(--cyan); }
+
+  /* --- Equipos --- */
+  .teams { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .team { border-radius: 16px; padding: 14px; border: 1px solid var(--line); }
+  .team.purple { background: linear-gradient(180deg, rgba(138,75,255,0.18), rgba(138,75,255,0.04)); }
+  .team.orange { background: linear-gradient(180deg, rgba(255,122,24,0.18), rgba(255,122,24,0.04)); }
+  .team h3 {
+    margin: 0 0 12px; display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px;
+  }
+  .team.purple h3 { color: var(--purple-soft); }
+  .team.orange h3 { color: var(--orange-soft); }
+  .team h3 .total { font-size: 18px; color: var(--ink); }
+
+  .card {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(10,10,24,0.55);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 9px 11px; margin-bottom: 8px;
+  }
+  .card .avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 15px; color: #07071a;
+    flex-shrink: 0;
+  }
+  .team.purple .avatar { background: linear-gradient(135deg, var(--purple-soft), var(--cyan)); }
+  .team.orange .avatar { background: linear-gradient(135deg, var(--orange-soft), var(--warn)); }
+  .card .info { flex: 1; min-width: 0; }
+  .card .info .name { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .info .sub { font-size: 11px; color: var(--ink-dim); }
+  .card .info .sub .role { color: var(--cyan); }
+  .card .score { text-align: right; }
+  .card .score .lv { font-size: 18px; font-weight: 800; }
+  .card .score .lvlabel { font-size: 9px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 1px; }
+
+  /* --- Ajustes --- */
+  .settings-grid { display: grid; gap: 12px; }
+  .field { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .field label { font-size: 13px; color: var(--ink-dim); min-width: 160px; }
+  .field input[type="text"] {
+    flex: 1; min-width: 200px;
+    background: rgba(10,10,24,0.6); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13px;
+  }
+  .switch { position: relative; width: 46px; height: 26px; }
+  .switch input { display: none; }
+  .switch .slider {
+    position: absolute; inset: 0; border-radius: 999px;
+    background: #2a2a4a; transition: 0.2s; cursor: pointer;
+  }
+  .switch .slider::before {
+    content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px;
+    border-radius: 50%; background: var(--ink); transition: 0.2s;
+  }
+  .switch input:checked + .slider { background: var(--cyan); }
+  .switch input:checked + .slider::before { transform: translateX(20px); background: #07071a; }
+  input[type="range"] { flex: 1; accent-color: var(--cyan); }
+
+  .toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(120%);
+    background: var(--bg-2); border: 1px solid var(--line);
+    padding: 12px 18px; border-radius: 12px; font-size: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4); transition: transform 0.3s ease; z-index: 50;
+    max-width: 90vw;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.err { border-color: var(--bad); color: var(--bad); }
+  .toast.ok { border-color: var(--good); color: var(--good); }
+
+  .hidden { display: none !important; }
+  .muted { color: var(--ink-dim); font-size: 13px; }
+
+  @media (max-width: 640px) {
+    .teams { grid-template-columns: 1fr; }
+    .field label { min-width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Balanceador Unite</h1>
+    <p>Arma equipos parejos · Púrpura vs Naranja</p>
+    <span id="modeFlag" class="demo-flag">Modo demo</span>
+  </header>
+
+  <div class="wrap">
+
+    <!-- Entrada -->
+    <section class="panel">
+      <h2>Jugadores</h2>
+      <div id="playersGrid" class="players-grid"></div>
+      <div class="btn-row">
+        <button id="btnSearch" class="btn-primary">Buscar y balancear</button>
+        <button id="btnExample" class="btn-ghost">Cargar ejemplo</button>
+        <button id="btnClear" class="btn-ghost">Limpiar</button>
+        <button id="btnSettings" class="btn-ghost">Ajustes ⚙</button>
+      </div>
+    </section>
+
+    <!-- Ajustes -->
+    <section id="settingsPanel" class="panel hidden">
+      <h2>Ajustes</h2>
+      <div class="settings-grid">
+        <div class="field">
+          <label for="demoToggle">Modo demo (stats simuladas)</label>
+          <span class="switch"><input type="checkbox" id="demoToggle" checked /><span class="slider"></span></span>
+        </div>
+        <div class="field">
+          <label for="backendUrl">URL del backend</label>
+          <input type="text" id="backendUrl" placeholder="https://mi-backend.onrender.com" />
+        </div>
+        <div class="field">
+          <label for="rolesToggle">Usar roles (evita 3+ del mismo)</label>
+          <span class="switch"><input type="checkbox" id="rolesToggle" /><span class="slider"></span></span>
+        </div>
+        <div class="field">
+          <label for="variation">Variación al rebalancear</label>
+          <input type="range" id="variation" min="1" max="20" value="6" />
+          <span id="variationVal" class="muted">Media</span>
+        </div>
+        <p class="muted">
+          Con <b>Modo demo</b> encendido las estadísticas se generan localmente (estables por nombre),
+          ideal para probar. Apágalo y pega la URL de tu backend para datos reales de UniteAPI.
+        </p>
+      </div>
+    </section>
+
+    <!-- Resultado -->
+    <section id="resultPanel" class="panel hidden">
+      <h2>Resultado</h2>
+
+      <div class="balance">
+        <span class="label purple" id="lblPurple">Púrpura</span>
+        <div class="bar" id="balanceBar">
+          <div class="fill-purple" id="fillPurple"></div>
+          <div class="fill-orange" id="fillOrange"></div>
+          <div class="marker"></div>
+        </div>
+        <span class="label orange" id="lblOrange">Naranja</span>
+      </div>
+      <div class="balance-meta" id="balanceMeta"></div>
+
+      <div class="btn-row">
+        <button id="btnRebalance" class="btn-primary">Rebalancear ⟳</button>
+        <span class="muted" id="splitInfo"></span>
+      </div>
+
+      <div class="teams" style="margin-top:16px">
+        <div class="team purple">
+          <h3>Equipo Púrpura <span class="total" id="totalPurple">0</span></h3>
+          <div id="listPurple"></div>
+        </div>
+        <div class="team orange">
+          <h3>Equipo Naranja <span class="total" id="totalOrange">0</span></h3>
+          <div id="listOrange"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+ *  Configuración y estado
+ * ========================================================================= */
+const SLOTS = 10;
+const ROLES = ["—", "Atacante", "Defensor", "Velocista", "Soporte", "Todoterreno"];
+const VARIATION_LABELS = { low: "Baja", mid: "Media", high: "Alta" };
+
+const state = {
+  demo: true,
+  backendUrl: "",
+  useRoles: false,
+  variation: 6,
+  players: [],      // datos enriquecidos del último balanceo
+  candidates: [],   // repartos ordenados por diferencia
+  candidateIdx: 0,
+};
+
+/* =========================================================================
+ *  Persistencia de ajustes
+ * ========================================================================= */
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem("balanceadorUnite") || "{}");
+    if (typeof s.demo === "boolean") state.demo = s.demo;
+    if (typeof s.backendUrl === "string") state.backendUrl = s.backendUrl;
+    if (typeof s.useRoles === "boolean") state.useRoles = s.useRoles;
+    if (typeof s.variation === "number") state.variation = s.variation;
+  } catch (_) {}
+}
+function saveSettings() {
+  localStorage.setItem("balanceadorUnite", JSON.stringify({
+    demo: state.demo,
+    backendUrl: state.backendUrl,
+    useRoles: state.useRoles,
+    variation: state.variation,
+  }));
+}
+
+/* =========================================================================
+ *  Cálculo de "nivel" de un jugador
+ *  rango -> base; Maestro suma Puntos de Maestro, los demás la clase.
+ *  + ajuste por win% (pesado por nº de partidas)
+ *  + bono de experiencia.
+ * ========================================================================= */
+const RANK_ORDER = ["Principiante", "Magnifico", "Experto", "Veterano", "Ultra", "Maestro"];
+const RANK_BASE = {
+  Principiante: 0,
+  Magnifico: 600,
+  Experto: 1200,
+  Veterano: 1900,
+  Ultra: 2700,
+  Maestro: 3600,
+};
+const RANK_SPAN = 600; // puntos repartidos entre las 5 clases de un rango
+
+function computeLevel(p) {
+  const rank = RANK_BASE.hasOwnProperty(p.rank) ? p.rank : "Principiante";
+  let base = RANK_BASE[rank];
+
+  if (rank === "Maestro") {
+    // Maestro: base + Puntos de Maestro (escalados, con tope razonable).
+    const mp = Math.max(0, p.masterPoints || 0);
+    base += Math.min(mp, 20000) / 10; // 1400 MP -> +140, tope +2000
+  } else {
+    // Otros rangos: clase 1 (alta) suma más que clase 5.
+    const clase = p.rankClass ? Math.min(5, Math.max(1, p.rankClass)) : 5;
+    base += ((5 - clase) / 4) * RANK_SPAN;
+  }
+
+  // Ajuste por win% pesado por confianza (más partidas = más fiable).
+  let wrAdj = 0;
+  if (typeof p.winRate === "number") {
+    const games = Math.max(0, p.games || 0);
+    const confidence = games / (games + 50); // 0..1
+    wrAdj = (p.winRate - 50) * 18 * confidence; // ±~360 con muchas partidas
+  }
+
+  // Bono de experiencia (rendimientos decrecientes).
+  const expBonus = Math.sqrt(Math.max(0, p.games || 0)) * 7;
+
+  const level = Math.round(base + wrAdj + expBonus);
+  return Math.max(0, level);
+}
+
+/* =========================================================================
+ *  Datos simulados (modo demo) — estables por nombre
+ * ========================================================================= */
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0);
+}
+function seededRand(seed) {
+  // generador determinista simple
+  let x = seed || 123456789;
+  return function () {
+    x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
+    return ((x >>> 0) % 100000) / 100000;
+  };
+}
+function demoPlayer(username) {
+  const rnd = seededRand(hashStr(username.toLowerCase()));
+  const rankIdx = Math.floor(rnd() * RANK_ORDER.length);
+  const rank = RANK_ORDER[rankIdx];
+  const games = 80 + Math.floor(rnd() * 900);
+  const winRate = Math.round((42 + rnd() * 20) * 10) / 10; // 42% - 62%
+  const out = { username, rank, winRate, games, source: "demo" };
+  if (rank === "Maestro") {
+    out.masterPoints = 1200 + Math.floor(rnd() * 1600);
+    out.rankClass = null;
+  } else {
+    out.rankClass = 1 + Math.floor(rnd() * 5);
+    out.masterPoints = null;
+  }
+  return out;
+}
+
+/* =========================================================================
+ *  Backend real
+ * ========================================================================= */
+async function fetchRealPlayer(username) {
+  // Si no se configura URL, usa el mismo origen (cuando la página la sirve el
+  // propio backend ya desplegado). Solo falla si se abrió como archivo local.
+  let baseUrl = state.backendUrl.replace(/\/+$/, "");
+  if (!baseUrl) {
+    if (location.protocol === "file:") {
+      throw new Error("Configura la URL del backend en Ajustes");
+    }
+    baseUrl = location.origin;
+  }
+  const res = await fetch(`${baseUrl}/api/player/${encodeURIComponent(username)}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Error ${res.status} con "${username}"`);
+  }
+  return res.json();
+}
+
+/* =========================================================================
+ *  Reparto en dos equipos
+ * ========================================================================= */
+function combinations(arr, k) {
+  const result = [];
+  const combo = [];
+  (function rec(start) {
+    if (combo.length === k) { result.push(combo.slice()); return; }
+    for (let i = start; i < arr.length; i++) {
+      combo.push(arr[i]);
+      rec(i + 1);
+      combo.pop();
+    }
+  })(0);
+  return result;
+}
+
+function roleViolation(team) {
+  if (!state.useRoles) return false;
+  const counts = {};
+  for (const p of team) {
+    if (!p.role || p.role === "—") continue;
+    counts[p.role] = (counts[p.role] || 0) + 1;
+    if (counts[p.role] >= 3) return true; // 3+ del mismo rol
+  }
+  return false;
+}
+
+function buildCandidates(players) {
+  const n = players.length;
+  const idx = players.map((_, i) => i);
+  const sizeA = Math.floor(n / 2);
+  const total = players.reduce((s, p) => s + p.level, 0);
+
+  const seen = new Set();
+  const cands = [];
+  for (const comboA of combinations(idx, sizeA)) {
+    // Evitar duplicados simétricos cuando los equipos son del mismo tamaño.
+    if (n % 2 === 0) {
+      const key = comboA.join(",");
+      if (seen.has(key)) continue;
+      const setA = new Set(comboA);
+      const comboB = idx.filter((i) => !setA.has(i));
+      seen.add(comboB.join(","));
+    }
+    const setA = new Set(comboA);
+    const teamA = players.filter((_, i) => setA.has(i));
+    const teamB = players.filter((_, i) => !setA.has(i));
+
+    if (roleViolation(teamA) || roleViolation(teamB)) continue;
+
+    const sumA = teamA.reduce((s, p) => s + p.level, 0);
+    const sumB = total - sumA;
+    cands.push({ teamA, teamB, sumA, sumB, diff: Math.abs(sumA - sumB) });
+  }
+
+  cands.sort((a, b) => a.diff - b.diff);
+  return cands;
+}
+
+function variationLabel(v) {
+  if (v <= 4) return VARIATION_LABELS.low;
+  if (v <= 12) return VARIATION_LABELS.mid;
+  return VARIATION_LABELS.high;
+}
+
+/* =========================================================================
+ *  Render
+ * ========================================================================= */
+function avatarLetter(name) {
+  return (name || "?").trim().charAt(0).toUpperCase() || "?";
+}
+
+function rankSubtitle(p) {
+  let r = p.rank || "Principiante";
+  if (p.rank === "Maestro" && p.masterPoints) r += " · " + p.masterPoints + " MP";
+  else if (p.rankClass) r += " · Clase " + p.rankClass;
+  const wr = typeof p.winRate === "number" ? p.winRate + "% WR" : "—";
+  const g = p.games ? p.games + " part." : "";
+  return [r, wr, g].filter(Boolean).join(" · ");
+}
+
+function renderCard(p) {
+  const role = state.useRoles && p.role && p.role !== "—"
+    ? `<span class="role">${p.role}</span> · ` : "";
+  return `
+    <div class="card">
+      <div class="avatar">${avatarLetter(p.username)}</div>
+      <div class="info">
+        <div class="name">${escapeHtml(p.username)}</div>
+        <div class="sub">${role}${escapeHtml(rankSubtitle(p))}</div>
+      </div>
+      <div class="score">
+        <div class="lv">${p.level}</div>
+        <div class="lvlabel">nivel</div>
+      </div>
+    </div>`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function renderCandidate() {
+  const c = state.candidates[state.candidateIdx];
+  if (!c) return;
+
+  document.getElementById("listPurple").innerHTML = c.teamA.map(renderCard).join("");
+  document.getElementById("listOrange").innerHTML = c.teamB.map(renderCard).join("");
+  document.getElementById("totalPurple").textContent = c.sumA;
+  document.getElementById("totalOrange").textContent = c.sumB;
+
+  const total = c.sumA + c.sumB || 1;
+  const pPurple = (c.sumA / total) * 100;
+  document.getElementById("fillPurple").style.width = pPurple + "%";
+  document.getElementById("fillOrange").style.width = (100 - pPurple) + "%";
+
+  const pct = total ? ((c.diff / total) * 100) : 0;
+  const balanced = pct <= 2; // <=2% se considera equilibrado
+  document.getElementById("balanceBar").classList.toggle("balanced", balanced);
+
+  const meta = document.getElementById("balanceMeta");
+  meta.classList.toggle("balanced", balanced);
+  meta.innerHTML = balanced
+    ? `Equilibrado ✦ diferencia de <b>${c.diff}</b> pts (${pct.toFixed(1)}%)`
+    : `Diferencia de <b>${c.diff}</b> pts (${pct.toFixed(1)}%)`;
+
+  const within = countWithinVariation();
+  document.getElementById("splitInfo").textContent =
+    `Reparto ${state.candidateIdx + 1} de ${state.candidates.length} · ` +
+    `${within} repartos casi idénticos disponibles`;
+}
+
+function countWithinVariation() {
+  if (!state.candidates.length) return 0;
+  const best = state.candidates[0].diff;
+  const tol = best + state.variation * 12;
+  return state.candidates.filter((c) => c.diff <= tol).length;
+}
+
+/* =========================================================================
+ *  Acciones
+ * ========================================================================= */
+function readInputs() {
+  const players = [];
+  for (let i = 0; i < SLOTS; i++) {
+    const name = document.getElementById("name-" + i).value.trim();
+    if (!name) continue;
+    const role = document.getElementById("role-" + i).value;
+    players.push({ username: name, role });
+  }
+  return players;
+}
+
+async function searchAndBalance() {
+  const inputs = readInputs();
+  if (inputs.length < 2) {
+    toast("Mete al menos 2 jugadores", "err");
+    return;
+  }
+
+  setBusy(true, "Buscando jugadores…");
+  const enriched = [];
+  const failed = [];
+
+  for (const inp of inputs) {
+    try {
+      let data;
+      if (state.demo) {
+        data = demoPlayer(inp.username);
+      } else {
+        data = await fetchRealPlayer(inp.username);
+      }
+      data.role = inp.role;
+      data.level = computeLevel(data);
+      enriched.push(data);
+    } catch (err) {
+      failed.push(inp.username + " (" + err.message + ")");
+    }
+  }
+  setBusy(false);
+
+  if (enriched.length < 2) {
+    toast("No se pudieron cargar suficientes jugadores", "err");
+    return;
+  }
+  if (failed.length) {
+    toast("No se cargaron: " + failed.join(", "), "err");
+  }
+
+  state.players = enriched;
+  state.candidates = buildCandidates(enriched);
+  state.candidateIdx = 0;
+
+  if (!state.candidates.length) {
+    toast("Ningún reparto cumple la restricción de roles", "err");
+    return;
+  }
+
+  document.getElementById("resultPanel").classList.remove("hidden");
+  renderCandidate();
+  document.getElementById("resultPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function rebalance() {
+  if (!state.candidates.length) return;
+  const within = countWithinVariation();
+  const pool = Math.max(1, Math.min(within, state.candidates.length));
+  // Avanza al siguiente reparto dentro del rango de variación, en bucle.
+  state.candidateIdx = (state.candidateIdx + 1) % pool;
+  renderCandidate();
+}
+
+/* =========================================================================
+ *  UI helpers
+ * ========================================================================= */
+let toastTimer = null;
+function toast(msg, type) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast show " + (type || "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = "toast"; }, 4000);
+}
+
+function setBusy(busy, msg) {
+  const btn = document.getElementById("btnSearch");
+  btn.disabled = busy;
+  btn.textContent = busy ? (msg || "…") : "Buscar y balancear";
+}
+
+function updateModeFlag() {
+  const flag = document.getElementById("modeFlag");
+  if (state.demo) {
+    flag.textContent = "Modo demo";
+    flag.classList.remove("live");
+  } else {
+    flag.textContent = "Datos reales";
+    flag.classList.add("live");
+  }
+}
+
+/* =========================================================================
+ *  Construcción de la UI
+ * ========================================================================= */
+function buildPlayerInputs() {
+  const grid = document.getElementById("playersGrid");
+  let html = "";
+  for (let i = 0; i < SLOTS; i++) {
+    const opts = ROLES.map((r) => `<option value="${r}">${r}</option>`).join("");
+    html += `
+      <div class="player-input">
+        <span class="num">${i + 1}</span>
+        <input type="text" id="name-${i}" placeholder="Usuario" autocomplete="off" />
+        <select id="role-${i}" class="role-select hidden">${opts}</select>
+      </div>`;
+  }
+  grid.innerHTML = html;
+
+  // Enter en cualquier input lanza el balanceo.
+  grid.querySelectorAll('input[type="text"]').forEach((inp) => {
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") searchAndBalance();
+    });
+  });
+}
+
+function applyRolesVisibility() {
+  document.querySelectorAll(".role-select").forEach((sel) => {
+    sel.classList.toggle("hidden", !state.useRoles);
+  });
+}
+
+const EXAMPLE_NAMES = [
+  "Ash", "Misty", "Brock", "Gary", "Serena",
+  "Dawn", "May", "Cynthia", "Red", "Leon",
+];
+function loadExample() {
+  EXAMPLE_NAMES.forEach((n, i) => {
+    const el = document.getElementById("name-" + i);
+    if (el) el.value = n;
+  });
+  toast("Ejemplo cargado · dale a «Buscar y balancear»", "ok");
+}
+
+function clearInputs() {
+  for (let i = 0; i < SLOTS; i++) {
+    const el = document.getElementById("name-" + i);
+    if (el) el.value = "";
+    const r = document.getElementById("role-" + i);
+    if (r) r.value = "—";
+  }
+  document.getElementById("resultPanel").classList.add("hidden");
+  state.players = [];
+  state.candidates = [];
+}
+
+/* =========================================================================
+ *  Inicialización
+ * ========================================================================= */
+function init() {
+  loadSettings();
+  buildPlayerInputs();
+
+  // Reflejar ajustes en la UI
+  document.getElementById("demoToggle").checked = state.demo;
+  document.getElementById("backendUrl").value = state.backendUrl;
+  document.getElementById("rolesToggle").checked = state.useRoles;
+  document.getElementById("variation").value = state.variation;
+  document.getElementById("variationVal").textContent = variationLabel(state.variation);
+  updateModeFlag();
+  applyRolesVisibility();
+
+  // Listeners
+  document.getElementById("btnSearch").addEventListener("click", searchAndBalance);
+  document.getElementById("btnExample").addEventListener("click", loadExample);
+  document.getElementById("btnClear").addEventListener("click", clearInputs);
+  document.getElementById("btnRebalance").addEventListener("click", rebalance);
+  document.getElementById("btnSettings").addEventListener("click", () => {
+    document.getElementById("settingsPanel").classList.toggle("hidden");
+  });
+
+  document.getElementById("demoToggle").addEventListener("change", (e) => {
+    state.demo = e.target.checked;
+    updateModeFlag();
+    saveSettings();
+  });
+  document.getElementById("backendUrl").addEventListener("change", (e) => {
+    state.backendUrl = e.target.value.trim();
+    saveSettings();
+  });
+  document.getElementById("rolesToggle").addEventListener("change", (e) => {
+    state.useRoles = e.target.checked;
+    applyRolesVisibility();
+    saveSettings();
+    if (state.players.length) {
+      state.candidates = buildCandidates(state.players);
+      state.candidateIdx = 0;
+      renderCandidate();
+    }
+  });
+  document.getElementById("variation").addEventListener("input", (e) => {
+    state.variation = parseInt(e.target.value, 10);
+    document.getElementById("variationVal").textContent = variationLabel(state.variation);
+    saveSettings();
+    if (state.candidates.length) renderCandidate();
+  });
+}
+
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
