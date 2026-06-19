@@ -21,6 +21,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,11 +32,33 @@ const UNITE_BASE = process.env.UNITE_BASE || 'https://uniteapi.dev';
 app.use(cors());
 app.use(express.json());
 
+// Localiza el archivo HTML del balanceador sin depender del nombre exacto
+// (balanceador-unite.html, balanceadorunite.html, index.html, o el primer .html).
+function findHtmlFile() {
+  const preferidos = ['balanceador-unite.html', 'balanceadorunite.html', 'index.html'];
+  for (const nombre of preferidos) {
+    const ruta = path.join(__dirname, nombre);
+    if (fs.existsSync(ruta)) return ruta;
+  }
+  try {
+    const html = fs.readdirSync(__dirname).find((f) => f.toLowerCase().endsWith('.html'));
+    if (html) return path.join(__dirname, html);
+  } catch (_) {}
+  return null;
+}
+
 // Sirve la pagina del balanceador desde el mismo servicio, asi un solo
 // despliegue gratis hospeda tanto la web como la API.
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'balanceador-unite.html'));
+  const archivo = findHtmlFile();
+  if (archivo) return res.sendFile(archivo);
+  res
+    .status(404)
+    .send('No se encontro el HTML del balanceador en el servidor.');
 });
+
+// Tambien expone los archivos estaticos (por si hay assets junto al HTML).
+app.use(express.static(__dirname));
 
 // ---------------------------------------------------------------------------
 // Cache simple en memoria para no martillear a UniteAPI
