@@ -1,12 +1,14 @@
 # Configuracion de despliegue para Render (https://render.com) - plan gratis.
 # Render lee este archivo y crea el servicio automaticamente.
 # Pasos: Dashboard -> New -> Blueprint -> conecta el repo -> Apply.
+#
+# Nota: los archivos estan en la raiz del repo (no en una subcarpeta),
+# por eso NO se usa rootDir.
 services:
   - type: web
     name: balanceador-unite
     runtime: node
     plan: free
-    rootDir: balanceador-unite
     buildCommand: npm install
     startCommand: node server.js
     envVars:
