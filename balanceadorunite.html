@@ -391,49 +391,17 @@ function saveSettings() {
 }
 
 /* =========================================================================
- *  Cálculo de "nivel" de un jugador
- *  rango -> base; Maestro suma Puntos de Maestro, los demás la clase.
- *  + ajuste por win% (pesado por nº de partidas)
- *  + bono de experiencia.
+ *  Cálculo del "nivel" de un jugador
+ *  Se basa EN EL % DE VICTORIAS historico (lo que pide el balanceo).
+ *  Un win% mas alto = jugador mejor. Sin dato => 50 (neutro).
  * ========================================================================= */
 const RANK_ORDER = ["Principiante", "Magnifico", "Experto", "Veterano", "Ultra", "Maestro"];
-const RANK_BASE = {
-  Principiante: 0,
-  Magnifico: 600,
-  Experto: 1200,
-  Veterano: 1900,
-  Ultra: 2700,
-  Maestro: 3600,
-};
-const RANK_SPAN = 600; // puntos repartidos entre las 5 clases de un rango
 
 function computeLevel(p) {
-  const rank = RANK_BASE.hasOwnProperty(p.rank) ? p.rank : "Principiante";
-  let base = RANK_BASE[rank];
-
-  if (rank === "Maestro") {
-    // Maestro: base + Puntos de Maestro (escalados, con tope razonable).
-    const mp = Math.max(0, p.masterPoints || 0);
-    base += Math.min(mp, 20000) / 10; // 1400 MP -> +140, tope +2000
-  } else {
-    // Otros rangos: clase 1 (alta) suma más que clase 5.
-    const clase = p.rankClass ? Math.min(5, Math.max(1, p.rankClass)) : 5;
-    base += ((5 - clase) / 4) * RANK_SPAN;
+  if (typeof p.winRate === "number" && !isNaN(p.winRate)) {
+    return Math.round(p.winRate * 10) / 10; // ej. 55.6
   }
-
-  // Ajuste por win% pesado por confianza (más partidas = más fiable).
-  let wrAdj = 0;
-  if (typeof p.winRate === "number") {
-    const games = Math.max(0, p.games || 0);
-    const confidence = games / (games + 50); // 0..1
-    wrAdj = (p.winRate - 50) * 18 * confidence; // ±~360 con muchas partidas
-  }
-
-  // Bono de experiencia (rendimientos decrecientes).
-  const expBonus = Math.sqrt(Math.max(0, p.games || 0)) * 7;
-
-  const level = Math.round(base + wrAdj + expBonus);
-  return Math.max(0, level);
+  return 50; // sin dato de win%, valor neutro
 }
 
 /* =========================================================================
@@ -475,6 +443,13 @@ function demoPlayer(username) {
 /* =========================================================================
  *  Backend real
  * ========================================================================= */
+// Extrae el ID numerico del perfil a partir de un ID suelto o de una URL
+// tipo https://uniteapi.dev/es/p/9165993530674454866
+function extractPlayerId(value) {
+  const m = String(value).match(/(\d{6,})/);
+  return m ? m[1] : String(value).trim();
+}
+
 async function fetchRealPlayer(username) {
   // Si no se configura URL, usa el mismo origen (cuando la página la sirve el
   // propio backend ya desplegado). Solo falla si se abrió como archivo local.
@@ -485,12 +460,16 @@ async function fetchRealPlayer(username) {
     }
     baseUrl = location.origin;
   }
-  const res = await fetch(`${baseUrl}/api/player/${encodeURIComponent(username)}`);
+  const id = extractPlayerId(username);
+  const res = await fetch(`${baseUrl}/api/player/${encodeURIComponent(id)}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Error ${res.status} con "${username}"`);
   }
-  return res.json();
+  const data = await res.json();
+  // Muestra el nombre real del jugador si el backend lo devuelve.
+  data.username = data.name || data.username || id;
+  return data;
 }
 
 /* =========================================================================
@@ -587,7 +566,7 @@ function renderCard(p) {
       </div>
       <div class="score">
         <div class="lv">${p.level}</div>
-        <div class="lvlabel">nivel</div>
+        <div class="lvlabel">win%</div>
       </div>
     </div>`;
 }
@@ -601,10 +580,12 @@ function renderCandidate() {
   const c = state.candidates[state.candidateIdx];
   if (!c) return;
 
+  const round1 = (x) => Math.round(x * 10) / 10;
+
   document.getElementById("listPurple").innerHTML = c.teamA.map(renderCard).join("");
   document.getElementById("listOrange").innerHTML = c.teamB.map(renderCard).join("");
-  document.getElementById("totalPurple").textContent = c.sumA;
-  document.getElementById("totalOrange").textContent = c.sumB;
+  document.getElementById("totalPurple").textContent = round1(c.sumA);
+  document.getElementById("totalOrange").textContent = round1(c.sumB);
 
   const total = c.sumA + c.sumB || 1;
   const pPurple = (c.sumA / total) * 100;
@@ -617,9 +598,10 @@ function renderCandidate() {
 
   const meta = document.getElementById("balanceMeta");
   meta.classList.toggle("balanced", balanced);
+  const diff = round1(c.diff);
   meta.innerHTML = balanced
-    ? `Equilibrado ✦ diferencia de <b>${c.diff}</b> pts (${pct.toFixed(1)}%)`
-    : `Diferencia de <b>${c.diff}</b> pts (${pct.toFixed(1)}%)`;
+    ? `Equilibrado ✦ diferencia de <b>${diff}</b> de win% (${pct.toFixed(1)}%)`
+    : `Diferencia de <b>${diff}</b> de win% (${pct.toFixed(1)}%)`;
 
   const within = countWithinVariation();
   document.getElementById("splitInfo").textContent =
@@ -630,7 +612,8 @@ function renderCandidate() {
 function countWithinVariation() {
   if (!state.candidates.length) return 0;
   const best = state.candidates[0].diff;
-  const tol = best + state.variation * 12;
+  // Escala de win%: tolera entre +0.5 y +10 puntos de win% sobre el mejor.
+  const tol = best + state.variation * 0.5;
   return state.candidates.filter((c) => c.diff <= tol).length;
 }
 
@@ -686,12 +669,15 @@ async function searchAndBalance() {
 
   state.players = enriched;
   state.candidates = buildCandidates(enriched);
-  state.candidateIdx = 0;
 
   if (!state.candidates.length) {
     toast("Ningún reparto cumple la restricción de roles", "err");
     return;
   }
+
+  // Elige AL AZAR entre los repartos mas parejos (aleatorio pero equilibrado).
+  const pool = Math.max(1, Math.min(countWithinVariation(), state.candidates.length));
+  state.candidateIdx = Math.floor(Math.random() * pool);
 
   document.getElementById("resultPanel").classList.remove("hidden");
   renderCandidate();
@@ -702,8 +688,12 @@ function rebalance() {
   if (!state.candidates.length) return;
   const within = countWithinVariation();
   const pool = Math.max(1, Math.min(within, state.candidates.length));
-  // Avanza al siguiente reparto dentro del rango de variación, en bucle.
-  state.candidateIdx = (state.candidateIdx + 1) % pool;
+  // Elige otro reparto AL AZAR dentro del rango de variación (distinto al actual).
+  let next = state.candidateIdx;
+  if (pool > 1) {
+    while (next === state.candidateIdx) next = Math.floor(Math.random() * pool);
+  }
+  state.candidateIdx = next;
   renderCandidate();
 }
 
@@ -747,7 +737,7 @@ function buildPlayerInputs() {
     html += `
       <div class="player-input">
         <span class="num">${i + 1}</span>
-        <input type="text" id="name-${i}" placeholder="Usuario" autocomplete="off" />
+        <input type="text" id="name-${i}" placeholder="ID o URL del perfil" autocomplete="off" />
         <select id="role-${i}" class="role-select hidden">${opts}</select>
       </div>`;
   }
