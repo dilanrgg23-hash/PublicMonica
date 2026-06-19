@@ -461,6 +461,12 @@ async function fetchRealPlayer(username) {
     baseUrl = location.origin;
   }
   const id = extractPlayerId(username);
+  // En datos reales hace falta el ID numerico (de la URL del perfil), no el nombre.
+  if (!/^\d{6,}$/.test(id)) {
+    throw new Error(
+      "pega la URL o el ID del perfil (ej. uniteapi.dev/es/p/123...), no el nombre"
+    );
+  }
   const res = await fetch(`${baseUrl}/api/player/${encodeURIComponent(id)}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
