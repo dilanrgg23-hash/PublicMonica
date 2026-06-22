@@ -2,15 +2,17 @@
 # Render lee este archivo y crea el servicio automaticamente.
 # Pasos: Dashboard -> New -> Blueprint -> conecta el repo -> Apply.
 #
-# Nota: los archivos estan en la raiz del repo (no en una subcarpeta),
-# por eso NO se usa rootDir.
+# Usa navegador headless (Puppeteer) para sortear Cloudflare, por eso el build
+# descarga Chromium dentro del proyecto (.puppeteerrc.cjs) y lo cachea.
 services:
   - type: web
     name: balanceador-unite
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npx puppeteer browsers install chrome
     startCommand: node server.js
     envVars:
       - key: UNITE_BASE
         value: https://uniteapi.dev
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/project/src/.cache/puppeteer

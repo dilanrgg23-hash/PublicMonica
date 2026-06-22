@@ -1,7 +1,7 @@
 {
   "name": "balanceador-unite",
-  "version": "1.0.0",
-  "description": "Backend que obtiene datos de jugadores de Pokemon Unite desde UniteAPI y los expone para el balanceador de equipos.",
+  "version": "2.0.0",
+  "description": "Backend con navegador headless que obtiene datos de Pokemon Unite desde UniteAPI (sorteando Cloudflare) para el balanceador de equipos.",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
@@ -15,12 +15,16 @@
     "pokemon-unite",
     "balanceador",
     "uniteapi",
-    "matchmaking"
+    "matchmaking",
+    "puppeteer"
   ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "express": "^4.19.2",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "puppeteer": "^23.0.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   }
 }
